@@ -1,33 +1,91 @@
+import React from "react";
 
-import logo from './logo.svg';
-import './App.css';
-
-const todoList = [
-  {
-  title: 'Complete assignment',
-  objectID: 0,
-  },
-  {
-  title: 'Read Road to React',
-  objectID: 1,
-  },
-  {
-  title: 'Watch videos',
-  objectID: 2,
-  }
-  ];
-
-function App() {
-  return (
-    <div>
-      <h1>Todo List</h1>
+function List (props) {
+    return (
+      <div>
+        <h2>{props.title}</h2>
         <ul>
-          {todoList.map(function (item){
-            return <li key={item.objectID}>
-              {item.title}
-              </li>
+          {props.list.map(function(item) {
+            return (<Item item={item} />);
           })}
         </ul>
+      </div>
+    );
+  }
+
+const Item = (props) => {
+  return (
+    <li key={props.item.objectID}>
+      <span>
+        <a href={props.item.url}>{props.item.title}</a>
+      </span>
+      <span>{props.item.author}</span>
+      <span>{props.item.num_comments}</span>
+      <span>{props.item.points}</span>
+  </li>
+  )
+}
+
+const Search = (props) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const handleChange = (event) =>  {
+    setSearchTerm(event.target.value);
+    props.onSearch(event);
+  }
+
+  const handleMouseOver = (event) => {
+    console.log(event);
+  }
+
+  return (
+    <div>
+      <label htmlFor="search">Search:</label>
+      <input id="search" type="text" onChange={handleChange} onMouseOver={handleMouseOver} />
+      
+      <p>
+        Searching for <strong>{searchTerm}</strong>
+      </p>
+
+
+    </div>
+  );
+}
+
+const App = () => {
+
+  const stories = [
+    {
+    title: 'React',
+    url: 'https://reactjs.org/',
+    author: 'Jordan Walke',
+    num_comments: 3,
+    points: 4,
+    objectID: 0,
+    },
+    {
+    title: 'Redux',
+    url: 'https://redux.js.org/',
+    author: 'Dan Abramov, Andrew Clark',
+    num_comments: 2,
+    points: 5,
+    objectID: 1,
+    },
+    ];
+  
+  const handleSearch = (event) => {
+    console.log(event.target.value);
+
+  }
+  
+  return (
+    <div>
+      <h1>My Hacker Stories</h1>
+      <Search onSearch={handleSearch} />
+      <hr />
+      <List list={stories} />
+      
+ 
     </div>
   );
 }
