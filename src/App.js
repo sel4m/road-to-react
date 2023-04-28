@@ -1,10 +1,8 @@
 import React from "react";
 import axios from "axios";
-
 import styled from 'styled-components';
-import { ReactComponent as Check } from './check.svg'
 
-
+// need to change project structure, give components their own files and import them here 
 
 const StyledContainer = styled.div`
 height: 100vw;
@@ -111,28 +109,54 @@ const storiesReducer = (state, action) => {
   }
 };
 
-const useSemiPersistentState = (key, initialState) => {
+const useSemiPersistentState = (
+  key, initialState
+) => {
+  const isMounted = React.useRef(false);
+
   const [value, setValue] =
     React.useState(
       localStorage.getItem(key) || initialState
     )
 
   React.useEffect(() => {
-    localStorage.setItem(key, value);
-  }, [value]);
+    if (!isMounted.current) {
+      isMounted.current = true;
+    } else {
+      console.log('A')
+      localStorage.setItem(key, value);
+    }
+  }, [value, key]);
 
   return [value, setValue];
 };
 
 const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
 
+const getSumComments = (stories) => {
+  console.log('C');
+  return stories.data.reduce(
+    (result, value) => result + value.num_comments,
+    0
+  );
+};
+
+const extractSearchTerm = (url) => url.replace(API_ENDPOINT, '');
+
+const getLastSearches = (urls) =>
+  urls.slice(-5).map(extractSearchTerm);
+
+const getUrl = (searchTerm) => `${API_ENDPOINT}${searchTerm}`;
+
 const App = () => {
 
   const [searchTerm, setSearchTerm] = useSemiPersistentState('search', 'React');
 
-  const [url, setUrl] = React.useState(
-    `${API_ENDPOINT}${searchTerm}`
-  );
+  // const [urls, setUrl] = React.useState(
+  //   `${API_ENDPOINT}${searchTerm}`
+  // );
+
+  const [urls, setUrl] = React.useState([getUrl(searchTerm)]);
 
   const [stories, dispatchStories] = React.useReducer(
     storiesReducer,
@@ -145,7 +169,8 @@ const App = () => {
     dispatchStories({ type: 'STORIES_FETCH_INIT' });
 
     try {
-      const result = await axios.get(url);
+      const lastUrl = urls[urls.length - 1];
+      const result = await axios.get(lastUrl);
 
       dispatchStories({
         type: 'STORIES_FETCH_SUCCESS',
@@ -154,43 +179,74 @@ const App = () => {
     } catch {
       dispatchStories({ type: 'STORIES_FETCH_FAILURE' });
     }
-  }, [url]);
+  }, [urls]);
 
   React.useEffect(() => {
     handleFetchStories();
   }, [handleFetchStories]);
 
 
-  const handleRemoveStory = (item) => {
-    const newStories = stories.filter(
-      (story) => item.objectID !== story.objectID
-    );
-
+  const handleRemoveStory = React.useCallback((item) => {
+    // const newStories = stories.filter(
+    //   (story) => item.objectID !== story.objectID
+    // );
     dispatchStories({
-      type: 'SET_STORIES',
-      payload: newStories,
+      type: 'REMOVE_STORY',
+      payload: item,
     });
-  };
+  }, []);
 
   const handleSearchInput = (event) => {
     setSearchTerm(event.target.value);
   };
 
   const handleSearchSubmit = (event) => {
-    setUrl(`${API_ENDPOINT}${searchTerm}`);
+    // const url = (`${API_ENDPOINT}${searchTerm}`);
+    // setUrl(urls.concat(url));
+    handleSearch(searchTerm);
 
     event.preventDefault();
   };
 
+  console.log('B:App');
+
+  const sumComments = React.useMemo(() => getSumComments(stories), [
+    stories,
+  ]);
+
+  const handleLastSearch = (searchTerm) => {
+    // const url = `${API_ENDPOINT}${searchTerm}`;
+    // setUrl(urls.concat(url));
+    handleSearch(searchTerm);
+  };
+  
+  const handleSearch = (searchTerm) => {
+    const url = getUrl(searchTerm);
+    setUrl(urls.concat(url));
+    };
+  
+ 
+  const lastSearches = getLastSearches(urls);
+
   return (
     <StyledContainer>
-      <StyledHeadlinePrimary>My Hacker Stories</StyledHeadlinePrimary>
+      <StyledHeadlinePrimary>My Hacker Stories with {sumComments} comments.</StyledHeadlinePrimary>
 
       <SearchForm
         searchTerm={searchTerm}
         onSearchInput={handleSearchInput}
         onSearchSubmit={handleSearchSubmit}
       />
+
+      {lastSearches.map((searchTerm, index) => (
+        <button
+          key={searchTerm + index}
+          type="button"
+          onClick={() => handleLastSearch(searchTerm)}
+        >
+          {searchTerm}
+        </button>
+      ))}
 
       {stories.isError && <p>Something went wrong ...</p>}
 
@@ -256,17 +312,31 @@ const SearchForm = ({
   </StyledSearchForm>
 );
 
-const List = ({ list, onRemoveItem }) =>
-  list.map(item => (
-    <Item
-      key={item.objectID}
-      item={item}
-      onRemoveItem={onRemoveItem}
-    />
-  ));
+const List = React.memo(
+  ({ list, onRemoveItem }) =>
+    console.log('B:List') || (
+      <ul>
+        <li style={{ display: 'flex' }}>
+          <span style={{ width: '40%' }}>Title</span>
+          <span style={{ width: '30%' }}>Author</span>
+          <span style={{ width: '10%' }}>Comments</span>
+          <span style={{ width: '10%' }}>Points</span>
+          <span style={{ width: '10%' }}>Actions</span>
+        </li>
+
+        {list.map(item => (
+          <Item
+            key={item.objectID}
+            item={item}
+            onRemoveItem={onRemoveItem}
+          />
+        ))}
+      </ul>
+    )
+);
 
 const Item = ({ item, onRemoveItem }) => (
-  <StyledItem>
+  <StyledItem display='flex'>
     <StyledColumn width="40%">
       <a href={item.url}>{item.title}</a>
     </StyledColumn>
@@ -283,6 +353,8 @@ const Item = ({ item, onRemoveItem }) => (
     </StyledColumn>
   </StyledItem>
 );
+
+
 
 
 
